@@ -5,6 +5,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { MqttModule } from './mqtt/mqtt.module';
 import { PresenceModule } from './presence/presence.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PresenceModule } from './presence/presence.module';
     AuthModule,
     MqttModule,
     PresenceModule,
+    ChatModule,
   ],
 })
 export class AppModule {}
