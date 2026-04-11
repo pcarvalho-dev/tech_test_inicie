@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "OctoClass Aluno",
+  "version": "1.0.0",
+  "description": "Extensão do aluno para OctoClass — chat, presença e screenshots",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "OctoClass Aluno"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "alarms", "tabs", "activeTab"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "http://localhost:8083/*",
+    "ws://localhost:8083/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; connect-src 'self' http://localhost:3000 ws://localhost:8083;"
+  }
+}
