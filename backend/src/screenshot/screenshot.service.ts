@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, MessageEvent, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -6,13 +6,20 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
+import Redis from 'ioredis';
+import { Observable, Subject } from 'rxjs';
 import { MqttService } from '../mqtt/mqtt.service';
 import { Screenshot } from './screenshot.entity';
+
+const PENDING_PREFIX = 'screenshot_pending:';
+const PENDING_TTL = 60;
 
 @Injectable()
 export class ScreenshotService implements OnModuleInit {
   private readonly logger = new Logger(ScreenshotService.name);
   private readonly storageDir: string;
+  private redis: Redis;
+  private readonly streams = new Map<string, Subject<MessageEvent>>();
 
   constructor(
     @InjectRepository(Screenshot)
@@ -21,6 +28,10 @@ export class ScreenshotService implements OnModuleInit {
     private readonly config: ConfigService,
   ) {
     this.storageDir = this.config.get<string>('SCREENSHOT_STORAGE_DIR') ?? './screenshots';
+    this.redis = new Redis({
+      host: this.config.getOrThrow<string>('REDIS_HOST'),
+      port: this.config.get<number>('REDIS_PORT') ?? 6379,
+    });
   }
 
   onModuleInit() {
@@ -45,22 +56,63 @@ export class ScreenshotService implements OnModuleInit {
     });
   }
 
+  getStream(alunoId: string): Observable<MessageEvent> {
+    this.streams.get(alunoId)?.complete();
+
+    const subject = new Subject<MessageEvent>();
+    this.streams.set(alunoId, subject);
+
+    const heartbeat = setInterval(() => {
+      if (!subject.closed) {
+        subject.next({ data: 'ping' });
+      } else {
+        clearInterval(heartbeat);
+      }
+    }, 20_000);
+
+    return new Observable((subscriber) => {
+      const sub = subject.subscribe(subscriber);
+      return () => {
+        sub.unsubscribe();
+        clearInterval(heartbeat);
+        this.streams.delete(alunoId);
+      };
+    });
+  }
+
   async requestScreenshot(professorId: string, alunoId: string): Promise<{ requestId: string }> {
     const requestId = randomUUID();
 
-    this.mqttService.publish(
-      `screenshot/request/${alunoId}`,
-      { requestId, professorId },
-      1,
+    const stream = this.streams.get(alunoId);
+    if (stream && !stream.closed) {
+      stream.next({
+        type: 'screenshot_request',
+        data: JSON.stringify({ requestId, professorId, alunoId }),
+      });
+    }
+
+    this.mqttService.publish(`screenshot/request/${alunoId}`, { requestId, professorId }, 1);
+
+    await this.redis.set(
+      `${PENDING_PREFIX}${alunoId}`,
+      JSON.stringify({ requestId, professorId }),
+      'EX',
+      PENDING_TTL,
     );
 
     return { requestId };
+  }
+
+  async getPendingRequest(alunoId: string): Promise<{ requestId: string; professorId: string } | null> {
+    const raw = await this.redis.get(`${PENDING_PREFIX}${alunoId}`);
+    return raw ? JSON.parse(raw) : null;
   }
 
   async uploadFromHttp(
     alunoId: string,
     data: { requestId: string; professorId: string; imageBase64: string },
   ) {
+    await this.redis.del(`${PENDING_PREFIX}${alunoId}`);
     return this.handleResponse(alunoId, data);
   }
 
@@ -94,6 +146,14 @@ export class ScreenshotService implements OnModuleInit {
     );
 
     this.logger.log(`Screenshot saved: ${filename}`);
+  }
+
+  notifyCaptureFailed(professorId: string, requestId: string) {
+    this.mqttService.publish(
+      `screenshot/ready/${professorId}`,
+      { error: 'capture_failed', requestId },
+      1,
+    );
   }
 
   async getHistory(professorId: string, alunoId?: string): Promise<Screenshot[]> {

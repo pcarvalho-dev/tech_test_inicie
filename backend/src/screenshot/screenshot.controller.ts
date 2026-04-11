@@ -2,15 +2,19 @@ import {
   Controller,
   Post,
   Get,
+  HttpCode,
   Param,
   Query,
   Body,
   Res,
+  Sse,
+  MessageEvent,
   UseGuards,
   Request,
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ScreenshotService } from './screenshot.service';
 
@@ -20,6 +24,27 @@ import { ScreenshotService } from './screenshot.service';
 @Controller('screenshots')
 export class ScreenshotController {
   constructor(private readonly screenshotService: ScreenshotService) {}
+
+  @Sse('stream')
+  @ApiOperation({ summary: 'SSE stream de pedidos de screenshot para o aluno autenticado' })
+  getStream(@Request() req: any): Observable<MessageEvent> {
+    return this.screenshotService.getStream(req.user.id);
+  }
+
+  @Get('pending')
+  @ApiOperation({ summary: 'Verificar se há pedido de screenshot pendente para o aluno autenticado' })
+  @ApiResponse({ status: 200, description: '{ requestId, professorId } ou null' })
+  getPending(@Request() req: any) {
+    return this.screenshotService.getPendingRequest(req.user.id);
+  }
+
+  @Post('capture-failed')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Notificar professor que captura de screenshot falhou' })
+  @ApiResponse({ status: 204 })
+  captureFailed(@Body() body: { requestId: string; professorId: string }) {
+    this.screenshotService.notifyCaptureFailed(body.professorId, body.requestId);
+  }
 
   @Post('upload')
   @ApiOperation({ summary: 'Enviar screenshot capturado via HTTP (usado pelo service worker MV3)' })
