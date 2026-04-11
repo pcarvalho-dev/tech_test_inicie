@@ -1,5 +1,5 @@
-import { Controller, Get, Post, HttpCode, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, HttpCode, Query, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PresenceService } from './presence.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -20,10 +20,11 @@ export class PresenceController {
   }
 
   @Get('online')
-  @ApiOperation({ summary: 'Listar alunos online no momento' })
-  @ApiResponse({ status: 200, description: 'Lista de alunos com presença ativa no Redis' })
+  @ApiOperation({ summary: 'Listar usuários online no momento' })
+  @ApiQuery({ name: 'role', required: false, description: 'Filtrar por role: aluno | professor' })
+  @ApiResponse({ status: 200, description: 'Lista de usuários com presença ativa no Redis' })
   @ApiResponse({ status: 401, description: 'Token inválido ou ausente' })
-  getOnlineStudents() {
-    return this.presenceService.getOnlineStudents();
+  getOnlineUsers(@Query('role') role?: string) {
+    return this.presenceService.getOnlineUsers(role);
   }
 }

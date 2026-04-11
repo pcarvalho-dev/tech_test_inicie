@@ -18,6 +18,15 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
+  async findByRole(role: UserRole): Promise<Pick<User, 'id' | 'name' | 'email' | 'role'>[]> {
+    return this.usersRepository
+      .createQueryBuilder('u')
+      .select(['u.id', 'u.name', 'u.email', 'u.role'])
+      .where('u.role = :role', { role })
+      .orderBy('u.name', 'ASC')
+      .getMany();
+  }
+
   async search(q: string): Promise<Pick<User, 'id' | 'name' | 'email' | 'role'>[]> {
     return this.usersRepository
       .createQueryBuilder('u')

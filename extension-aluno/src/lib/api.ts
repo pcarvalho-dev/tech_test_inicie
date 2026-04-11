@@ -41,6 +41,18 @@ export interface UserResult {
   role: string;
 }
 
+export async function getProfessors(): Promise<UserResult[]> {
+  const res = await apiFetch('/users/professors');
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getOnlineUsers(): Promise<{ userId: string; name: string; role: string }[]> {
+  const res = await apiFetch('/presence/online');
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function searchUsers(q: string): Promise<UserResult[]> {
   if (q.trim().length < 2) return [];
   const res = await apiFetch(`/users/search?q=${encodeURIComponent(q)}`);

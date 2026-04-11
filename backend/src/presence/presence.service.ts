@@ -43,16 +43,18 @@ export class PresenceService implements OnModuleInit {
     this.mqttService.publish(`presence/${userId}`, { name, role }, 0);
   }
 
-  async getOnlineStudents(): Promise<{ userId: string; name: string }[]> {
+  async getOnlineUsers(role?: string): Promise<{ userId: string; name: string; role: string }[]> {
     const keys = await this.redis.keys(`${PRESENCE_PREFIX}*`);
     if (!keys.length) return [];
 
     const values = await this.redis.mget(...keys);
+    const users = values.filter(Boolean).map((v) => JSON.parse(v!));
 
-    return values
-      .filter(Boolean)
-      .map((v) => JSON.parse(v!))
-      .filter((u) => u.role === 'aluno');
+    return role ? users.filter((u) => u.role === role) : users;
+  }
+
+  async getOnlineStudents(): Promise<{ userId: string; name: string; role: string }[]> {
+    return this.getOnlineUsers('aluno');
   }
 
   async isOnline(userId: string): Promise<boolean> {

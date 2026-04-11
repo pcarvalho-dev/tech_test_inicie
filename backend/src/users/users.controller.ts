@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { UsersService } from './users.service';
+import { UserRole } from './user.entity';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -9,6 +10,14 @@ import { UsersService } from './users.service';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('professors')
+  @ApiOperation({ summary: 'Listar todos os professores cadastrados' })
+  @ApiResponse({ status: 200, description: 'Lista de professores (sem password)' })
+  @ApiResponse({ status: 401, description: 'Token inválido ou ausente' })
+  findProfessors() {
+    return this.usersService.findByRole(UserRole.PROFESSOR);
+  }
 
   @Get('search')
   @ApiOperation({ summary: 'Buscar usuários por nome ou email' })

@@ -4,7 +4,7 @@ import { PresenceController } from './presence.controller';
 import { PresenceService } from './presence.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-const mockPresenceService = { getOnlineStudents: vi.fn(), pingFromHttp: vi.fn() };
+const mockPresenceService = { getOnlineUsers: vi.fn(), pingFromHttp: vi.fn() };
 
 describe('PresenceController', () => {
   let controller: PresenceController;
@@ -22,12 +22,12 @@ describe('PresenceController', () => {
     controller = module.get(PresenceController);
   });
 
-  it('retorna alunos online', async () => {
-    const alunos = [{ userId: 'uuid-1', name: 'Aluno' }];
-    mockPresenceService.getOnlineStudents.mockResolvedValue(alunos);
+  it('retorna usuários online', async () => {
+    const users = [{ userId: 'uuid-1', name: 'Aluno', role: 'aluno' }];
+    mockPresenceService.getOnlineUsers.mockResolvedValue(users);
 
-    const result = await controller.getOnlineStudents();
-    expect(result).toEqual(alunos);
+    const result = await controller.getOnlineUsers();
+    expect(result).toEqual(users);
   });
 
   it('ping delega para pingFromHttp com dados do usuário autenticado', async () => {
