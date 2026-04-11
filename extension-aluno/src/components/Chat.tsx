@@ -52,7 +52,7 @@ export default function ChatPage({ onLogout }: Props) {
       setUserId(user.id);
       setUserName(user.name);
 
-      const client = createMqttClient(user.id);
+      const client = createMqttClient(user.id, token);
       mqttRef.current = client;
 
       client.on('connect', () => {
@@ -148,7 +148,6 @@ export default function ChatPage({ onLogout }: Props) {
 
   return (
     <div className="flex flex-col w-[400px] h-[600px] bg-gray-50">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-blue-600 text-white shrink-0">
         <div>
           <p className="font-semibold text-sm">{userName}</p>
@@ -159,7 +158,6 @@ export default function ChatPage({ onLogout }: Props) {
         </button>
       </div>
 
-      {/* Screenshot indicator */}
       {screenshot.active && (
         <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-xs text-yellow-800 flex items-center gap-2 shrink-0">
           <div className="animate-pulse w-2 h-2 rounded-full bg-yellow-500" />
@@ -167,7 +165,6 @@ export default function ChatPage({ onLogout }: Props) {
         </div>
       )}
 
-      {/* Professor list or active chat header */}
       {!receiverId ? (
         <div className="flex-1 overflow-y-auto bg-white">
           <div className="flex items-center justify-between px-4 py-2 border-b bg-gray-50">
@@ -218,7 +215,6 @@ export default function ChatPage({ onLogout }: Props) {
         </div>
       ) : (
         <>
-          {/* Active chat receiver bar */}
           <div className="px-4 py-2 bg-white border-b shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full ${onlineIds.has(receiverId) ? 'bg-green-500' : 'bg-gray-300'}`} />
@@ -229,7 +225,6 @@ export default function ChatPage({ onLogout }: Props) {
             </button>
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {messages.length === 0 && (
               <p className="text-center text-xs text-gray-400 mt-8">
@@ -252,7 +247,6 @@ export default function ChatPage({ onLogout }: Props) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
           <form onSubmit={handleSend} className="flex gap-2 px-4 py-3 bg-white border-t shrink-0">
             <input
               type="text"

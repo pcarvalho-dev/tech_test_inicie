@@ -11,11 +11,9 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["storage", "alarms", "tabs", "activeTab"],
+  "permissions": ["storage", "alarms", "tabs", "activeTab", "windows"],
   "host_permissions": [
-    "http://localhost:3000/*",
-    "http://localhost:8083/*",
-    "ws://localhost:8083/*"
+    "<all_urls>"
   ],
   "content_security_policy": {
     "extension_pages": "default-src 'self'; connect-src 'self' http://localhost:3000 ws://localhost:8083;"

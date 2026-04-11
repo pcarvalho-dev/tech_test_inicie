@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import LoginPage from './pages/Login';
-import ChatPage from './pages/Chat';
+import LoginPage from '@/components/Login';
+import ChatPage from '@/components/Chat';
 
 type Page = 'loading' | 'login' | 'chat';
 
-export default function App() {
+export default function IndexPage() {
   const [page, setPage] = useState<Page>('loading');
 
   useEffect(() => {

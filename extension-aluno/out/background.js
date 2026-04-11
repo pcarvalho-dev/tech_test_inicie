@@ -1,9 +1,67 @@
 // background/index.ts
 var API_URL = "http://localhost:3000/api";
+async function connectSseStream() {
+  const auth = await getAuth();
+  if (!auth) return;
+  try {
+    const response = await fetch(`${API_URL}/screenshots/stream`, {
+      headers: { Authorization: `Bearer ${auth.token}` }
+    });
+    if (!response.ok || !response.body) throw new Error("SSE connect failed");
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+      for (const part of parts) {
+        let eventType = "message";
+        let data = "";
+        for (const line of part.split("\n")) {
+          if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+          if (line.startsWith("data: ")) data = line.slice(6).trim();
+        }
+        if (eventType === "screenshot_request" && data) {
+          try {
+            const payload = JSON.parse(data);
+            await captureAndUpload({
+              requestId: payload.requestId,
+              professorId: payload.professorId,
+              alunoId: auth.user.id
+            });
+          } catch {
+          }
+        }
+      }
+    }
+  } catch {
+  }
+  chrome.alarms.create("sse-reconnect", { delayInMinutes: 0.05 });
+}
 async function getAuth() {
   const { token, user } = await chrome.storage.local.get(["token", "user"]);
   if (!token || !user) return null;
   return { token, user };
+}
+async function checkPendingScreenshot(auth) {
+  try {
+    const res = await fetch(`${API_URL}/screenshots/pending`, {
+      headers: { Authorization: `Bearer ${auth.token}` }
+    });
+    if (!res.ok) return;
+    const pending = await res.json();
+    if (pending?.requestId) {
+      await captureAndUpload({
+        requestId: pending.requestId,
+        professorId: pending.professorId,
+        alunoId: auth.user.id
+      });
+    }
+  } catch {
+  }
 }
 async function sendPresencePing() {
   const auth = await getAuth();
@@ -18,24 +76,49 @@ async function sendPresencePing() {
     });
   } catch {
   }
+  await checkPendingScreenshot(auth);
 }
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "presence-ping") {
-    sendPresencePing();
-  }
+  if (alarm.name === "presence-ping") sendPresencePing();
+  if (alarm.name === "sse-reconnect") connectSseStream();
 });
 async function captureAndUpload(data) {
   const auth = await getAuth();
   if (!auth) return;
+  let windowId;
+  try {
+    const win = await chrome.windows.getLastFocused({ windowTypes: ["normal"] });
+    if (win?.id) {
+      const [activeTab] = await chrome.tabs.query({ active: true, windowId: win.id });
+      if (activeTab?.url?.startsWith("http")) {
+        windowId = win.id;
+      }
+    }
+  } catch {
+  }
+  if (windowId === void 0) {
+    try {
+      const [httpTab] = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+      if (httpTab?.windowId !== void 0) windowId = httpTab.windowId;
+    } catch {
+    }
+  }
   let dataUrl;
   try {
-    dataUrl = await chrome.tabs.captureVisibleTab({ format: "png" });
+    if (windowId === void 0) throw new Error("no capturable tab");
+    dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
   } catch {
+    await fetch(`${API_URL}/screenshots/capture-failed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ requestId: data.requestId, professorId: data.professorId })
+    }).catch(() => {
+    });
     return;
   }
   const imageBase64 = dataUrl.replace("data:image/png;base64,", "");
   try {
-    await fetch(`${API_URL}/screenshots/upload`, {
+    const res = await fetch(`${API_URL}/screenshots/upload`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -47,13 +130,21 @@ async function captureAndUpload(data) {
         imageBase64
       })
     });
+    if (!res.ok) throw new Error(`upload status ${res.status}`);
   } catch {
+    await fetch(`${API_URL}/screenshots/capture-failed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${auth.token}` },
+      body: JSON.stringify({ requestId: data.requestId, professorId: data.professorId })
+    }).catch(() => {
+    });
   }
 }
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type === "start-presence") {
     chrome.alarms.create("presence-ping", { periodInMinutes: 0.25 });
     sendPresencePing();
+    connectSseStream();
     sendResponse({ ok: true });
   }
   if (msg.type === "stop-presence") {
@@ -70,11 +161,13 @@ chrome.runtime.onInstalled.addListener(async () => {
   const auth = await getAuth();
   if (auth) {
     chrome.alarms.create("presence-ping", { periodInMinutes: 0.25 });
+    connectSseStream();
   }
 });
 chrome.runtime.onStartup.addListener(async () => {
   const auth = await getAuth();
   if (auth) {
     chrome.alarms.create("presence-ping", { periodInMinutes: 0.25 });
+    connectSseStream();
   }
 });
