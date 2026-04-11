@@ -2,7 +2,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
+import { randomUUID } from 'crypto';
+import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import { MqttService } from '../mqtt/mqtt.service';
 import { Screenshot } from './screenshot.entity';
@@ -22,18 +24,21 @@ export class ScreenshotService implements OnModuleInit {
   }
 
   onModuleInit() {
-    if (!fs.existsSync(this.storageDir)) {
-      fs.mkdirSync(this.storageDir, { recursive: true });
+    if (!fsSync.existsSync(this.storageDir)) {
+      fsSync.mkdirSync(this.storageDir, { recursive: true });
     }
 
-    // Backend escuta as respostas dos alunos
     this.mqttService.subscribe('screenshot/response/+', (topic, payload) => {
       const alunoId = topic.split('/')[2];
-      const data = JSON.parse(payload.toString()) as {
-        professorId: string;
-        imageBase64: string;
-        requestId: string;
-      };
+
+      let data: { professorId: string; imageBase64: string; requestId: string };
+      try {
+        data = JSON.parse(payload.toString());
+      } catch {
+        this.logger.error(`Invalid JSON in screenshot/response from aluno ${alunoId}`);
+        return;
+      }
+
       this.handleResponse(alunoId, data).catch((err) =>
         this.logger.error(`Error handling screenshot response: ${err.message}`),
       );
@@ -41,7 +46,7 @@ export class ScreenshotService implements OnModuleInit {
   }
 
   async requestScreenshot(professorId: string, alunoId: string): Promise<{ requestId: string }> {
-    const requestId = crypto.randomUUID();
+    const requestId = randomUUID();
 
     this.mqttService.publish(
       `screenshot/request/${alunoId}`,
@@ -60,17 +65,16 @@ export class ScreenshotService implements OnModuleInit {
     const filePath = path.join(this.storageDir, filename);
 
     const base64Data = data.imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+    await fs.writeFile(filePath, Buffer.from(base64Data, 'base64'));
 
     const record = this.screenshotRepository.create({
       professorId: data.professorId,
       alunoId,
-      filePath,
+      filePath: filename,
     });
 
     await this.screenshotRepository.save(record);
 
-    // Notifica o professor que o screenshot está pronto
     this.mqttService.publish(
       `screenshot/ready/${data.professorId}`,
       {
@@ -82,7 +86,7 @@ export class ScreenshotService implements OnModuleInit {
       1,
     );
 
-    this.logger.log(`Screenshot saved: ${filePath}`);
+    this.logger.log(`Screenshot saved: ${filename}`);
   }
 
   async getHistory(professorId: string, alunoId?: string): Promise<Screenshot[]> {

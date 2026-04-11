@@ -23,7 +23,12 @@ export class PresenceService implements OnModuleInit {
 
     this.mqttService.subscribe('presence/+', (topic, payload) => {
       const userId = topic.split('/')[1];
-      const data = JSON.parse(payload.toString());
+      let data: { name: string; role: string };
+      try {
+        data = JSON.parse(payload.toString());
+      } catch {
+        return;
+      }
       this.updatePresence(userId, data.name, data.role);
     });
   }

@@ -27,7 +27,12 @@ export class ChatService implements OnModuleInit {
     });
 
     this.mqttService.subscribe('chat/+', (topic, payload) => {
-      const data = JSON.parse(payload.toString());
+      let data: { id: string; senderId: string; receiverId: string; content: string };
+      try {
+        data = JSON.parse(payload.toString());
+      } catch {
+        return;
+      }
       this.persistMessage(data);
     });
   }
@@ -73,28 +78,42 @@ export class ChatService implements OnModuleInit {
     return saved;
   }
 
-  async getHistory(userIdA: string, userIdB: string, limit = 50) {
-    const cacheKey = `history:${[userIdA, userIdB].sort().join(':')}`;
+  async getHistory(userIdA: string, userIdB: string, limit = 50, cursor?: string) {
+    const cacheKey = `history:${[userIdA, userIdB].sort().join(':')}:${cursor ?? 'first'}:${limit}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
-    const messages = await this.messageRepository
+    const qb = this.messageRepository
       .createQueryBuilder('message')
       .where(
         '(message.senderId = :a AND message.receiverId = :b) OR (message.senderId = :b AND message.receiverId = :a)',
         { a: userIdA, b: userIdB },
       )
       .orderBy('message.createdAt', 'DESC')
-      .take(limit)
-      .getMany();
+      .take(limit + 1);
 
-    await this.redis.set(cacheKey, JSON.stringify(messages), 'EX', HISTORY_CACHE_TTL);
+    if (cursor) {
+      qb.andWhere('message.createdAt < :cursor', { cursor: new Date(cursor) });
+    }
 
-    return messages;
+    const messages = await qb.getMany();
+    const hasMore = messages.length > limit;
+    const nextCursor = hasMore ? messages[limit - 1].createdAt.toISOString() : null;
+    if (hasMore) messages.pop();
+
+    const result = {
+      data: messages,
+      hasMore,
+      nextCursor,
+    };
+
+    await this.redis.set(cacheKey, JSON.stringify(result), 'EX', HISTORY_CACHE_TTL);
+
+    return result;
   }
 
   private async invalidateHistoryCache(userIdA: string, userIdB: string) {
-    const cacheKey = `history:${[userIdA, userIdB].sort().join(':')}`;
-    await this.redis.del(cacheKey);
+    const keys = await this.redis.keys(`history:${[userIdA, userIdB].sort().join(':')}:*`);
+    if (keys.length) await this.redis.del(...keys);
   }
 }
