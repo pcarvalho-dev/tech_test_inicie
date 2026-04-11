@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,6 +38,7 @@ services:
     environment:
       EMQX_NAME: emqx
       EMQX_HOST: 0.0.0.0
+      EMQX_MQTT__ALLOW_ANONYMOUS: "true"
     volumes:
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
@@ -55,16 +56,17 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
-      MQTT_HOST: ${MQTT_HOST}
-      MQTT_PORT: ${MQTT_PORT}
-      MQTT_USERNAME: ${MQTT_USERNAME}
-      MQTT_PASSWORD: ${MQTT_PASSWORD}
+      MQTT_HOST: emqx
+      MQTT_PORT: 1883
       PORT: ${PORT}
       NODE_ENV: ${NODE_ENV}
+      SCREENSHOT_STORAGE_DIR: /app/screenshots
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,12 +74,15 @@ services:
         condition: service_healthy
       emqx:
         condition: service_healthy
+    command: npm run start:dev
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - screenshots_data:/app/screenshots
 
 volumes:
   postgres_data:
   redis_data:
   emqx_data:
   emqx_log:
+  screenshots_data:

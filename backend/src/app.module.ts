@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { MqttModule } from './mqtt/mqtt.module';
 import { PresenceModule } from './presence/presence.module';
 import { ChatModule } from './chat/chat.module';
+import { ScreenshotModule } from './screenshot/screenshot.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ChatModule } from './chat/chat.module';
     MqttModule,
     PresenceModule,
     ChatModule,
+    ScreenshotModule,
   ],
 })
 export class AppModule {}
