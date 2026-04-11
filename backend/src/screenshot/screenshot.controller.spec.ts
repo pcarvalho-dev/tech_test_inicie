@@ -9,6 +9,7 @@ const mockScreenshotService = {
   requestScreenshot: vi.fn(),
   getHistory: vi.fn(),
   getImagePath: vi.fn(),
+  uploadFromHttp: vi.fn(),
 };
 
 const mockReq = { user: { id: 'prof-uuid' } };
@@ -47,6 +48,15 @@ describe('ScreenshotController', () => {
 
     await controller.getImage('ss-1', mockRes);
     expect(mockRes.sendFile).toHaveBeenCalledWith('file.png', expect.objectContaining({ root: expect.any(String) }));
+  });
+
+  it('uploadScreenshot delega para uploadFromHttp com alunoId do token', async () => {
+    mockScreenshotService.uploadFromHttp.mockResolvedValue(undefined);
+    const body = { requestId: 'req-1', professorId: 'prof-uuid', imageBase64: 'abc' };
+
+    await controller.uploadScreenshot(mockReq, body);
+
+    expect(mockScreenshotService.uploadFromHttp).toHaveBeenCalledWith('prof-uuid', body);
   });
 
   it('getImage lança NotFoundException se screenshot não encontrado', async () => {

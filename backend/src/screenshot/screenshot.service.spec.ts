@@ -140,6 +140,27 @@ describe('ScreenshotService', () => {
     });
   });
 
+  describe('uploadFromHttp', () => {
+    it('delega para handleResponse e salva o screenshot', async () => {
+      const record = { id: 'ss-uuid', professorId: 'prof-uuid', alunoId: 'aluno-uuid', filePath: 'file.png', createdAt: new Date() };
+      mockRepo.create.mockReturnValue(record);
+      mockRepo.save.mockResolvedValue(record);
+
+      await service.uploadFromHttp('aluno-uuid', {
+        requestId: 'req-uuid',
+        professorId: 'prof-uuid',
+        imageBase64: 'abc123',
+      });
+
+      expect(mockRepo.save).toHaveBeenCalled();
+      expect(mockMqttService.publish).toHaveBeenCalledWith(
+        'screenshot/ready/prof-uuid',
+        expect.objectContaining({ screenshotId: 'ss-uuid' }),
+        1,
+      );
+    });
+  });
+
   describe('getImagePath', () => {
     it('retorna screenshot pelo id', async () => {
       const ss = { id: 'ss-1', filePath: 'file.png' };

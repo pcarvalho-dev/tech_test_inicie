@@ -18,6 +18,15 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
+  async search(q: string): Promise<Pick<User, 'id' | 'name' | 'email' | 'role'>[]> {
+    return this.usersRepository
+      .createQueryBuilder('u')
+      .select(['u.id', 'u.name', 'u.email', 'u.role'])
+      .where('LOWER(u.name) LIKE :q OR LOWER(u.email) LIKE :q', { q: `%${q.toLowerCase()}%` })
+      .take(10)
+      .getMany();
+  }
+
   async create(data: {
     email: string;
     name: string;

@@ -57,6 +57,13 @@ export class ScreenshotService implements OnModuleInit {
     return { requestId };
   }
 
+  async uploadFromHttp(
+    alunoId: string,
+    data: { requestId: string; professorId: string; imageBase64: string },
+  ) {
+    return this.handleResponse(alunoId, data);
+  }
+
   private async handleResponse(
     alunoId: string,
     data: { professorId: string; imageBase64: string; requestId: string },

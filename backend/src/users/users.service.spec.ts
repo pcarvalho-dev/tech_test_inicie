@@ -15,10 +15,18 @@ const mockUser: User = {
   updatedAt: new Date(),
 };
 
+const mockQb = {
+  select: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  take: vi.fn().mockReturnThis(),
+  getMany: vi.fn(),
+};
+
 const mockRepo = {
   findOne: vi.fn(),
   create: vi.fn(),
   save: vi.fn(),
+  createQueryBuilder: vi.fn().mockReturnValue(mockQb),
 };
 
 describe('UsersService', () => {
@@ -82,11 +90,27 @@ describe('UsersService', () => {
     });
 
     it('lança ConflictException se email já existe', async () => {
+      mockRepo.createQueryBuilder.mockReturnValue(mockQb);
       mockRepo.findOne.mockResolvedValue(mockUser);
 
       await expect(
         service.create({ email: 'test@test.com', name: 'Test', password: 'hashed', role: UserRole.ALUNO }),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('search', () => {
+    it('retorna usuários que correspondem ao termo', async () => {
+      mockQb.getMany.mockResolvedValue([mockUser]);
+      const result = await service.search('test');
+      expect(result).toEqual([mockUser]);
+      expect(mockQb.where).toHaveBeenCalledWith(expect.stringContaining('LIKE'), expect.objectContaining({ q: '%test%' }));
+    });
+
+    it('retorna array vazio para query vazia', async () => {
+      mockQb.getMany.mockResolvedValue([]);
+      const result = await service.search('');
+      expect(Array.isArray(result)).toBe(true);
     });
   });
 });

@@ -33,9 +33,14 @@ export class PresenceService implements OnModuleInit {
     });
   }
 
-  private async updatePresence(userId: string, name: string, role: string) {
+  async updatePresence(userId: string, name: string, role: string) {
     const key = `${PRESENCE_PREFIX}${userId}`;
     await this.redis.set(key, JSON.stringify({ userId, name, role }), 'EX', PRESENCE_TTL);
+  }
+
+  async pingFromHttp(userId: string, name: string, role: string) {
+    await this.updatePresence(userId, name, role);
+    this.mqttService.publish(`presence/${userId}`, { name, role }, 0);
   }
 
   async getOnlineStudents(): Promise<{ userId: string; name: string }[]> {

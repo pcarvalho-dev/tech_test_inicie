@@ -82,6 +82,15 @@ describe('PresenceService', () => {
     });
   });
 
+  describe('pingFromHttp', () => {
+    it('atualiza Redis e publica no MQTT', async () => {
+      mockRedis.set.mockResolvedValue('OK');
+      await service.pingFromHttp('uuid-1', 'Aluno', 'aluno');
+      expect(mockRedis.set).toHaveBeenCalledWith('presence:uuid-1', expect.any(String), 'EX', 30);
+      expect(mockMqttService.publish).toHaveBeenCalledWith('presence/uuid-1', { name: 'Aluno', role: 'aluno' }, 0);
+    });
+  });
+
   describe('isOnline', () => {
     it('retorna true se chave existe', async () => {
       mockRedis.exists.mockResolvedValue(1);

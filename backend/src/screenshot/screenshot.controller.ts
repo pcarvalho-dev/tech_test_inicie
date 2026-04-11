@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Query,
+  Body,
   Res,
   UseGuards,
   Request,
@@ -19,6 +20,17 @@ import { ScreenshotService } from './screenshot.service';
 @Controller('screenshots')
 export class ScreenshotController {
   constructor(private readonly screenshotService: ScreenshotService) {}
+
+  @Post('upload')
+  @ApiOperation({ summary: 'Enviar screenshot capturado via HTTP (usado pelo service worker MV3)' })
+  @ApiResponse({ status: 201, description: 'Screenshot salvo e professor notificado via MQTT' })
+  @ApiResponse({ status: 401, description: 'Token inválido ou ausente' })
+  uploadScreenshot(
+    @Request() req: any,
+    @Body() body: { requestId: string; professorId: string; imageBase64: string },
+  ) {
+    return this.screenshotService.uploadFromHttp(req.user.id, body);
+  }
 
   @Post('request/:alunoId')
   @ApiOperation({ summary: 'Solicitar screenshot da tela de um aluno' })
