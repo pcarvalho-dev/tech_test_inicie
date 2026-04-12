@@ -12,11 +12,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     const host = this.config.getOrThrow<string>('MQTT_HOST');
-    const port = this.config.getOrThrow<string>('MQTT_PORT');
+    const port = this.config.get<number>('MQTT_PORT') ?? 1883;
 
     this.client = mqtt.connect(`mqtt://${host}:${port}`, {
       clientId: `backend_${Math.random().toString(16).slice(2)}`,
-      username: 'backend',
+      username: this.config.getOrThrow<string>('MQTT_USERNAME'),
       password: this.config.getOrThrow<string>('MQTT_PASSWORD'),
       clean: true,
       reconnectPeriod: 1000,

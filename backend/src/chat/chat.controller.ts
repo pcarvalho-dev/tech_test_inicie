@@ -31,6 +31,7 @@ export class ChatController {
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
-    return this.chatService.getHistory(req.user.id, userId, limit ? parseInt(limit) : 50, cursor);
+    const parsedLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100) : 50;
+    return this.chatService.getHistory(req.user.id, userId, parsedLimit, cursor);
   }
 }

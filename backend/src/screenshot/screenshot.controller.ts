@@ -17,6 +17,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ScreenshotService } from './screenshot.service';
+import { CaptureFailedDto } from './dto/capture-failed.dto';
+import { UploadScreenshotDto } from './dto/upload-screenshot.dto';
 
 @ApiTags('screenshots')
 @ApiBearerAuth()
@@ -42,7 +44,7 @@ export class ScreenshotController {
   @HttpCode(204)
   @ApiOperation({ summary: 'Notificar professor que captura de screenshot falhou' })
   @ApiResponse({ status: 204 })
-  captureFailed(@Body() body: { requestId: string; professorId: string }) {
+  captureFailed(@Body() body: CaptureFailedDto) {
     this.screenshotService.notifyCaptureFailed(body.professorId, body.requestId);
   }
 
@@ -52,7 +54,7 @@ export class ScreenshotController {
   @ApiResponse({ status: 401, description: 'Token inválido ou ausente' })
   uploadScreenshot(
     @Request() req: any,
-    @Body() body: { requestId: string; professorId: string; imageBase64: string },
+    @Body() body: UploadScreenshotDto,
   ) {
     return this.screenshotService.uploadFromHttp(req.user.id, body);
   }
@@ -81,7 +83,6 @@ export class ScreenshotController {
   async getImage(@Param('id') id: string, @Res() res: any) {
     const screenshot = await this.screenshotService.getImagePath(id);
     if (!screenshot?.filePath) throw new NotFoundException('Screenshot not found');
-    // filePath armazena apenas o filename (sem path), root aponta para o storageDir
     const storageDir = process.env.SCREENSHOT_STORAGE_DIR ?? './screenshots';
     res.sendFile(screenshot.filePath, { root: storageDir });
   }

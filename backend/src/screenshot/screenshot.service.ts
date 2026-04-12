@@ -13,6 +13,11 @@ import { Screenshot } from './screenshot.entity';
 
 const PENDING_PREFIX = 'screenshot_pending:';
 const PENDING_TTL = 60;
+const PROCESSING_PREFIX = 'screenshot_processing:';
+const PROCESSING_TTL = 30;
+const MAX_BASE64_BYTES = 10 * 1024 * 1024;
+const MAX_BASE64_LENGTH = Math.ceil(MAX_BASE64_BYTES * (4 / 3));
+const SSE_TIMEOUT_MS = 5 * 60 * 1000;
 
 @Injectable()
 export class ScreenshotService implements OnModuleInit {
@@ -32,6 +37,7 @@ export class ScreenshotService implements OnModuleInit {
       host: this.config.getOrThrow<string>('REDIS_HOST'),
       port: this.config.get<number>('REDIS_PORT') ?? 6379,
     });
+    this.redis.on('error', (err) => this.logger.error(`Redis error: ${err.message}`));
   }
 
   onModuleInit() {
@@ -70,11 +76,16 @@ export class ScreenshotService implements OnModuleInit {
       }
     }, 20_000);
 
+    const timeout = setTimeout(() => {
+      if (!subject.closed) subject.complete();
+    }, SSE_TIMEOUT_MS);
+
     return new Observable((subscriber) => {
       const sub = subject.subscribe(subscriber);
       return () => {
         sub.unsubscribe();
         clearInterval(heartbeat);
+        clearTimeout(timeout);
         this.streams.delete(alunoId);
       };
     });
@@ -120,6 +131,19 @@ export class ScreenshotService implements OnModuleInit {
     alunoId: string,
     data: { professorId: string; imageBase64: string; requestId: string },
   ) {
+    const lockKey = `${PROCESSING_PREFIX}${data.requestId}`;
+    const acquired = await this.redis.set(lockKey, '1', 'EX', PROCESSING_TTL, 'NX');
+    if (!acquired) {
+      this.logger.warn(`Screenshot request ${data.requestId} already being processed, skipping`);
+      return;
+    }
+
+    if (data.imageBase64.length > MAX_BASE64_LENGTH) {
+      this.logger.error(`Screenshot from aluno ${alunoId} exceeds size limit (${data.imageBase64.length} chars)`);
+      this.notifyCaptureFailed(data.professorId, data.requestId);
+      return;
+    }
+
     const filename = `${Date.now()}_${alunoId}.png`;
     const filePath = path.join(this.storageDir, filename);
 

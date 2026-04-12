@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import Redis from 'ioredis';
@@ -11,6 +11,7 @@ const HISTORY_CACHE_TTL = 60;
 
 @Injectable()
 export class ChatService implements OnModuleInit {
+  private readonly logger = new Logger(ChatService.name);
   private redis: Redis;
 
   constructor(
@@ -25,6 +26,7 @@ export class ChatService implements OnModuleInit {
       host: this.config.getOrThrow<string>('REDIS_HOST'),
       port: this.config.get<number>('REDIS_PORT') ?? 6379,
     });
+    this.redis.on('error', (err) => this.logger.error(`Redis error: ${err.message}`));
 
     this.mqttService.subscribe('chat/+', (topic, payload) => {
       let data: { id: string; senderId: string; receiverId: string; content: string };
@@ -33,7 +35,9 @@ export class ChatService implements OnModuleInit {
       } catch {
         return;
       }
-      this.persistMessage(data);
+      this.persistMessage(data).catch((err) =>
+        this.logger.error(`Failed to persist message: ${err.message}`),
+      );
     });
   }
 
@@ -93,7 +97,9 @@ export class ChatService implements OnModuleInit {
       .take(limit + 1);
 
     if (cursor) {
-      qb.andWhere('message.createdAt < :cursor', { cursor: new Date(cursor) });
+      const cursorDate = new Date(cursor);
+      if (isNaN(cursorDate.getTime())) throw new Error('Invalid cursor: must be a valid ISO8601 date');
+      qb.andWhere('message.createdAt < :cursor', { cursor: cursorDate });
     }
 
     const messages = await qb.getMany();

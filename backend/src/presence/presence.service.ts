@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MqttService } from '../mqtt/mqtt.service';
 import Redis from 'ioredis';
@@ -8,6 +8,7 @@ const PRESENCE_PREFIX = 'presence:';
 
 @Injectable()
 export class PresenceService implements OnModuleInit {
+  private readonly logger = new Logger(PresenceService.name);
   private redis: Redis;
 
   constructor(
@@ -20,6 +21,7 @@ export class PresenceService implements OnModuleInit {
       host: this.config.getOrThrow<string>('REDIS_HOST'),
       port: this.config.get<number>('REDIS_PORT') ?? 6379,
     });
+    this.redis.on('error', (err) => this.logger.error(`Redis error: ${err.message}`));
 
     this.mqttService.subscribe('presence/+', (topic, payload) => {
       const userId = topic.split('/')[1];

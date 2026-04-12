@@ -1,9 +1,13 @@
 import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { IsString } from 'class-validator';
 
-interface MqttAuthBody {
+class MqttAuthBody {
+  @IsString()
   username: string;
+
+  @IsString()
   password: string;
 }
 
@@ -32,7 +36,6 @@ export class MqttAuthController {
         return { result: 'allow' };
       }
     } catch {
-      // token inválido
     }
 
     return { result: 'deny' };
