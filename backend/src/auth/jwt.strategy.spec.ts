@@ -3,22 +3,26 @@ import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { JwtStrategy } from './jwt.strategy';
+import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/user.entity';
 
 const mockUsersService = { findById: vi.fn() };
 const mockConfigService = { getOrThrow: vi.fn().mockReturnValue('secret') };
+const mockAuthService = { getSession: vi.fn().mockResolvedValue(null) };
 
 describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockAuthService.getSession.mockResolvedValue(null);
     const module = await Test.createTestingModule({
       providers: [
         JwtStrategy,
         { provide: UsersService, useValue: mockUsersService },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: AuthService, useValue: mockAuthService },
       ],
     }).compile();
 
@@ -32,6 +36,16 @@ describe('JwtStrategy', () => {
     const result = await strategy.validate({ sub: 'uuid-1', email: 'a@a.com', role: UserRole.ALUNO });
 
     expect(result).toEqual(user);
+  });
+
+  it('retorna sessão do cache quando disponível', async () => {
+    const cached = { id: 'uuid-1', email: 'a@a.com', name: 'Aluno', role: UserRole.ALUNO };
+    mockAuthService.getSession.mockResolvedValue(cached);
+
+    const result = await strategy.validate({ sub: 'uuid-1', email: 'a@a.com', role: UserRole.ALUNO });
+
+    expect(result).toEqual(cached);
+    expect(mockUsersService.findById).not.toHaveBeenCalled();
   });
 
   it('lança UnauthorizedException se usuário não existe', async () => {

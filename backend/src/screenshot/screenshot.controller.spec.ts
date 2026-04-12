@@ -10,6 +10,9 @@ const mockScreenshotService = {
   getHistory: vi.fn(),
   getImagePath: vi.fn(),
   uploadFromHttp: vi.fn(),
+  getStream: vi.fn(),
+  getPendingRequest: vi.fn(),
+  notifyCaptureFailed: vi.fn(),
 };
 
 const mockReq = { user: { id: 'prof-uuid' } };
@@ -64,5 +67,27 @@ describe('ScreenshotController', () => {
     const mockRes = { sendFile: vi.fn() };
 
     await expect(controller.getImage('nao-existe', mockRes)).rejects.toThrow(NotFoundException);
+  });
+
+  it('getStream retorna Observable do service', () => {
+    const mockObservable = { subscribe: vi.fn() };
+    mockScreenshotService.getStream.mockReturnValue(mockObservable);
+
+    const result = controller.getStream(mockReq);
+    expect(mockScreenshotService.getStream).toHaveBeenCalledWith('prof-uuid');
+    expect(result).toBe(mockObservable);
+  });
+
+  it('getPending delega para getPendingRequest do service', async () => {
+    mockScreenshotService.getPendingRequest.mockResolvedValue({ requestId: 'req-1', professorId: 'prof-uuid' });
+
+    const result = await controller.getPending(mockReq);
+    expect(mockScreenshotService.getPendingRequest).toHaveBeenCalledWith('prof-uuid');
+    expect(result).toEqual({ requestId: 'req-1', professorId: 'prof-uuid' });
+  });
+
+  it('captureFailed chama notifyCaptureFailed no service', () => {
+    controller.captureFailed({ professorId: 'prof-uuid', requestId: 'req-1' });
+    expect(mockScreenshotService.notifyCaptureFailed).toHaveBeenCalledWith('prof-uuid', 'req-1');
   });
 });

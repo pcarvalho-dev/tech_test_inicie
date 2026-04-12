@@ -12,6 +12,16 @@ vi.mock('fs', () => ({
   mkdirSync: vi.fn(),
 }));
 
+const mockRedis = {
+  set: vi.fn().mockResolvedValue('OK'),
+  del: vi.fn().mockResolvedValue(1),
+  on: vi.fn(),
+};
+
+vi.mock('ioredis', () => ({
+  default: class { constructor() { return mockRedis; } },
+}));
+
 const makeQb = (items: any[]) => ({
   where: vi.fn().mockReturnThis(),
   andWhere: vi.fn().mockReturnThis(),
@@ -30,6 +40,7 @@ const mockRepo = {
 const mockMqttService = { subscribe: vi.fn(), publish: vi.fn() };
 const mockConfig = {
   get: vi.fn().mockReturnValue('./screenshots'),
+  getOrThrow: vi.fn().mockReturnValue('localhost'),
 };
 
 describe('ScreenshotService', () => {
@@ -37,6 +48,7 @@ describe('ScreenshotService', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockRedis.set.mockResolvedValue('OK');
 
     const module = await Test.createTestingModule({
       providers: [
@@ -60,6 +72,15 @@ describe('ScreenshotService', () => {
       const handler = mockMqttService.subscribe.mock.calls[0][1];
       expect(() => handler('screenshot/response/aluno-1', Buffer.from('invalid-json'))).not.toThrow();
     });
+
+    it('cria diretório de storage quando não existe', async () => {
+      const { existsSync, mkdirSync } = await import('fs');
+      vi.mocked(existsSync).mockReturnValueOnce(false);
+
+      service.onModuleInit();
+
+      expect(mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    });
   });
 
   describe('requestScreenshot', () => {
@@ -72,6 +93,17 @@ describe('ScreenshotService', () => {
         expect.objectContaining({ professorId: 'prof-uuid' }),
         1,
       );
+    });
+
+    it('envia evento SSE ao stream ativo quando existe', async () => {
+      const obs = service.getStream('aluno-uuid');
+      const events: any[] = [];
+      obs.subscribe({ next: (e) => events.push(e) });
+
+      await service.requestScreenshot('prof-uuid', 'aluno-uuid');
+
+      const sseEvent = events.find((e) => e.type === 'screenshot_request');
+      expect(sseEvent).toBeDefined();
     });
   });
 
@@ -174,6 +206,113 @@ describe('ScreenshotService', () => {
       mockRepo.findOne.mockResolvedValue(null);
       const result = await service.getImagePath('nao-existe');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getStream', () => {
+    it('retorna Observable e registra stream para o aluno', () => {
+      const observable = service.getStream('aluno-uuid');
+      expect(observable).toBeDefined();
+      expect(typeof observable.subscribe).toBe('function');
+    });
+
+    it('completa stream anterior ao criar novo para o mesmo aluno', () => {
+      const obs1 = service.getStream('aluno-uuid');
+      const completeSpy = vi.fn();
+      obs1.subscribe({ complete: completeSpy });
+
+      service.getStream('aluno-uuid');
+      expect(completeSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('getPendingRequest', () => {
+    it('retorna null se não há pedido pendente', async () => {
+      mockRedis.set.mockResolvedValue('OK');
+      const { redis } = service as any;
+      if (redis?.get) {
+        vi.spyOn(redis, 'get').mockResolvedValue(null);
+      }
+
+      const innerRedis = (service as any).redis;
+      innerRedis.get = vi.fn().mockResolvedValue(null);
+
+      const result = await service.getPendingRequest('aluno-uuid');
+      expect(result).toBeNull();
+    });
+
+    it('retorna dados do pedido pendente se existir', async () => {
+      const pending = { requestId: 'req-1', professorId: 'prof-uuid' };
+      const innerRedis = (service as any).redis;
+      innerRedis.get = vi.fn().mockResolvedValue(JSON.stringify(pending));
+
+      const result = await service.getPendingRequest('aluno-uuid');
+      expect(result).toEqual(pending);
+    });
+  });
+
+  describe('notifyCaptureFailed', () => {
+    it('publica erro de captura no tópico do professor', () => {
+      service.notifyCaptureFailed('prof-uuid', 'req-uuid');
+      expect(mockMqttService.publish).toHaveBeenCalledWith(
+        'screenshot/ready/prof-uuid',
+        expect.objectContaining({ error: 'capture_failed', requestId: 'req-uuid' }),
+        1,
+      );
+    });
+  });
+
+  describe('handleResponse — erro no save', () => {
+    it('registra erro sem lançar quando save falha no handler MQTT', async () => {
+      mockRepo.save.mockRejectedValueOnce(new Error('db error'));
+
+      const handler = mockMqttService.subscribe.mock.calls[0][1];
+      const payload = JSON.stringify({
+        professorId: 'prof-uuid',
+        imageBase64: 'abc',
+        requestId: 'req-erro',
+      });
+
+      expect(() => handler('screenshot/response/aluno-uuid', Buffer.from(payload))).not.toThrow();
+      await new Promise((r) => setTimeout(r, 30));
+    });
+  });
+
+  describe('handleResponse — lock já adquirido', () => {
+    it('ignora processamento duplicado quando lock já existe', async () => {
+      mockRedis.set.mockResolvedValueOnce(null);
+
+      const handler = mockMqttService.subscribe.mock.calls[0][1];
+      const payload = JSON.stringify({
+        professorId: 'prof-uuid',
+        imageBase64: 'abc',
+        requestId: 'req-uuid',
+      });
+
+      handler('screenshot/response/aluno-uuid', Buffer.from(payload));
+      await new Promise((r) => setTimeout(r, 20));
+
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleResponse — tamanho excedido', () => {
+    it('não salva e chama notifyCaptureFailed quando imagem excede limite', async () => {
+      const notifySpy = vi.spyOn(service, 'notifyCaptureFailed');
+      const hugeBase64 = 'a'.repeat(14 * 1024 * 1024);
+
+      const handler = mockMqttService.subscribe.mock.calls[0][1];
+      const payload = JSON.stringify({
+        professorId: 'prof-uuid',
+        imageBase64: hugeBase64,
+        requestId: 'req-uuid',
+      });
+
+      handler('screenshot/response/aluno-uuid', Buffer.from(payload));
+      await new Promise((r) => setTimeout(r, 20));
+
+      expect(mockRepo.save).not.toHaveBeenCalled();
+      expect(notifySpy).toHaveBeenCalledWith('prof-uuid', 'req-uuid');
     });
   });
 });

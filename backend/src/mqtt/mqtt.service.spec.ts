@@ -19,7 +19,14 @@ const mockConfig = {
   getOrThrow: vi.fn((key: string) => {
     const map: Record<string, string> = {
       MQTT_HOST: 'localhost',
-      MQTT_PORT: '1883',
+      MQTT_USERNAME: 'backend',
+      MQTT_PASSWORD: 'test_password',
+    };
+    return map[key];
+  }),
+  get: vi.fn((key: string) => {
+    const map: Record<string, unknown> = {
+      MQTT_PORT: 1883,
     };
     return map[key];
   }),

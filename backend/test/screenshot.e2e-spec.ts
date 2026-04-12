@@ -16,6 +16,8 @@ vi.mock('ioredis', () => ({
   default: class {
     get = vi.fn().mockResolvedValue(null);
     set = vi.fn().mockResolvedValue('OK');
+    del = vi.fn().mockResolvedValue(1);
+    on = vi.fn();
   },
 }));
 

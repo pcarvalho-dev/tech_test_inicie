@@ -44,4 +44,10 @@ describe('ChatController', () => {
     await controller.getHistory(mockReq, 'other-uuid', '20', '2026-01-01T00:00:00.000Z');
     expect(mockChatService.getHistory).toHaveBeenCalledWith('uuid-1', 'other-uuid', 20, '2026-01-01T00:00:00.000Z');
   });
+
+  it('getHistory usa limit 50 quando valor não é numérico', async () => {
+    mockChatService.getHistory.mockResolvedValue({ data: [], hasMore: false, nextCursor: null });
+    await controller.getHistory(mockReq, 'other-uuid', 'abc');
+    expect(mockChatService.getHistory).toHaveBeenCalledWith('uuid-1', 'other-uuid', 50, undefined);
+  });
 });

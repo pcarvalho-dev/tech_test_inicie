@@ -18,6 +18,7 @@ vi.mock('ioredis', () => ({
     set = vi.fn().mockResolvedValue('OK');
     del = vi.fn().mockResolvedValue(1);
     keys = vi.fn().mockResolvedValue([]);
+    on = vi.fn();
   },
 }));
 

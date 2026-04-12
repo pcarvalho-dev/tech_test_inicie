@@ -18,6 +18,8 @@ const mockUser: User = {
 const mockQb = {
   select: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
+  andWhere: vi.fn().mockReturnThis(),
+  orderBy: vi.fn().mockReturnThis(),
   take: vi.fn().mockReturnThis(),
   getMany: vi.fn(),
 };
@@ -111,6 +113,17 @@ describe('UsersService', () => {
       mockQb.getMany.mockResolvedValue([]);
       const result = await service.search('');
       expect(Array.isArray(result)).toBe(true);
+    });
+  });
+
+  describe('findByRole', () => {
+    it('retorna usuários pelo role', async () => {
+      const professors = [{ id: 'uuid-1', name: 'Prof', email: 'prof@test.com', role: UserRole.PROFESSOR }];
+      mockQb.getMany.mockResolvedValue(professors);
+
+      const result = await service.findByRole(UserRole.PROFESSOR);
+      expect(result).toEqual(professors);
+      expect(mockQb.where).toHaveBeenCalledWith('u.role = :role', { role: UserRole.PROFESSOR });
     });
   });
 });

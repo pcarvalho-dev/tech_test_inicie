@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +9,17 @@ import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/user.entity';
 
 vi.mock('bcrypt');
+
+const mockRedis = {
+  set: vi.fn().mockResolvedValue('OK'),
+  get: vi.fn().mockResolvedValue(null),
+  del: vi.fn().mockResolvedValue(1),
+  on: vi.fn(),
+};
+
+vi.mock('ioredis', () => ({
+  default: class { constructor() { return mockRedis; } },
+}));
 
 const mockUser = {
   id: 'uuid-1',
@@ -19,21 +31,34 @@ const mockUser = {
 
 const mockUsersService = { findByEmail: vi.fn(), create: vi.fn(), findById: vi.fn() };
 const mockJwtService = { sign: vi.fn().mockReturnValue('token-jwt') };
+const mockConfig = {
+  getOrThrow: vi.fn((key: string) => {
+    const map: Record<string, string> = { REDIS_HOST: 'localhost', JWT_EXPIRES_IN: '8h' };
+    return map[key];
+  }),
+  get: vi.fn((key: string) => {
+    const map: Record<string, unknown> = { REDIS_PORT: 6379 };
+    return map[key];
+  }),
+};
 
 describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockRedis.set.mockResolvedValue('OK');
     const module = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
 
     service = module.get(AuthService);
+    service.onModuleInit();
   });
 
   describe('register', () => {
@@ -89,6 +114,62 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'prof@test.com', password: 'errada' }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('onModuleInit — error handler Redis', () => {
+    it('trata erro do Redis sem lançar exceção', () => {
+      const errorHandler = mockRedis.on.mock.calls.find(([evt]: [string]) => evt === 'error')?.[1];
+      expect(() => errorHandler?.(new Error('redis down'))).not.toThrow();
+    });
+  });
+
+  describe('getSession', () => {
+    it('retorna null se não há sessão em cache', async () => {
+      mockRedis.get.mockResolvedValue(null);
+      const result = await service.getSession('uuid-1');
+      expect(result).toBeNull();
+    });
+
+    it('retorna dados da sessão se existir no cache', async () => {
+      const session = { id: 'uuid-1', email: 'a@a.com', name: 'A', role: 'aluno' };
+      mockRedis.get.mockResolvedValue(JSON.stringify(session));
+
+      const result = await service.getSession('uuid-1');
+      expect(result).toEqual(session);
+    });
+  });
+
+  describe('invalidateSession', () => {
+    it('remove a sessão do Redis', async () => {
+      mockRedis.del.mockResolvedValue(1);
+      await service.invalidateSession('uuid-1');
+      expect(mockRedis.del).toHaveBeenCalledWith('session:uuid-1');
+    });
+  });
+
+  describe('parseJwtExpiry — formato inválido', () => {
+    it('usa TTL padrão de 28800s quando formato não reconhecido', async () => {
+      const configInvalid = {
+        getOrThrow: vi.fn((key: string) => {
+          if (key === 'REDIS_HOST') return 'localhost';
+          if (key === 'JWT_EXPIRES_IN') return 'sem-formato';
+          return undefined;
+        }),
+        get: vi.fn().mockReturnValue(6379),
+      };
+
+      const module2 = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: UsersService, useValue: mockUsersService },
+          { provide: JwtService, useValue: mockJwtService },
+          { provide: ConfigService, useValue: configInvalid },
+        ],
+      }).compile();
+
+      const svc = module2.get(AuthService);
+      expect(() => svc.onModuleInit()).not.toThrow();
     });
   });
 });

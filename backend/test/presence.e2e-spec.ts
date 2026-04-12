@@ -20,6 +20,7 @@ vi.mock('ioredis', () => ({
       JSON.stringify({ userId: 'aluno-uuid', name: 'Aluno', role: 'aluno' }),
     ]);
     exists = vi.fn().mockResolvedValue(1);
+    on = vi.fn();
   },
 }));
 

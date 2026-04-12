@@ -12,6 +12,7 @@ const mockRedis = {
   set: vi.fn(),
   del: vi.fn(),
   keys: vi.fn(),
+  on: vi.fn(),
 };
 
 vi.mock('ioredis', () => ({
@@ -101,6 +102,17 @@ describe('ChatService', () => {
 
       expect(mockRepo.save).toHaveBeenCalled();
     });
+
+    it('registra erro sem lançar quando persistMessage falha', async () => {
+      const handler = mockMqttService.subscribe.mock.calls[0][1];
+      const msg = { id: 'msg-3', senderId: 'a', receiverId: 'b', content: 'erro' };
+      mockRepo.findOne.mockResolvedValue(null);
+      mockRepo.create.mockReturnValue(msg);
+      mockRepo.save.mockRejectedValueOnce(new Error('db error'));
+
+      expect(() => handler('chat/msg-3', Buffer.from(JSON.stringify(msg)))).not.toThrow();
+      await new Promise((r) => setTimeout(r, 20));
+    });
   });
 
   describe('sendMessage', () => {
@@ -138,6 +150,23 @@ describe('ChatService', () => {
       expect(result.data).toEqual(msgs);
       expect(result.hasMore).toBe(false);
       expect(mockRedis.set).toHaveBeenCalled();
+    });
+
+    it('lança erro para cursor inválido', async () => {
+      mockRedis.get.mockResolvedValue(null);
+      mockRepo.createQueryBuilder.mockReturnValue(makeQb([]));
+
+      await expect(service.getHistory('a', 'b', 50, 'data-invalida')).rejects.toThrow('Invalid cursor');
+    });
+
+    it('aplica filtro de cursor válido no query builder', async () => {
+      mockRedis.get.mockResolvedValue(null);
+      const qb = makeQb([]);
+      mockRepo.createQueryBuilder.mockReturnValue(qb);
+
+      await service.getHistory('a', 'b', 50, '2026-01-01T00:00:00.000Z');
+
+      expect(qb.andWhere).toHaveBeenCalledWith('message.createdAt < :cursor', expect.any(Object));
     });
 
     it('hasMore=true e nextCursor correto quando há mais itens', async () => {

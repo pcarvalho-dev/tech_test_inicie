@@ -9,6 +9,7 @@ const mockRedis = {
   keys: vi.fn(),
   mget: vi.fn(),
   exists: vi.fn(),
+  on: vi.fn(),
 };
 
 vi.mock('ioredis', () => ({
@@ -18,7 +19,7 @@ vi.mock('ioredis', () => ({
 const mockMqttService = { subscribe: vi.fn(), publish: vi.fn() };
 const mockConfig = {
   getOrThrow: vi.fn().mockReturnValue('redis'),
-  get: vi.fn().mockReturnValue(6379),
+  get: vi.fn().mockReturnValue(undefined),
 };
 
 describe('PresenceService', () => {
@@ -44,6 +45,11 @@ describe('PresenceService', () => {
       expect(mockMqttService.subscribe).toHaveBeenCalledWith('presence/+', expect.any(Function));
     });
 
+    it('trata erro do Redis sem lançar exceção', () => {
+      const errorHandler = mockRedis.on.mock.calls.find(([evt]: [string]) => evt === 'error')?.[1];
+      expect(() => errorHandler?.(new Error('redis down'))).not.toThrow();
+    });
+
     it('ignora payload MQTT com JSON inválido', () => {
       const handler = mockMqttService.subscribe.mock.calls[0][1];
       expect(() => handler('presence/uuid-1', Buffer.from('invalid-json'))).not.toThrow();
@@ -59,6 +65,19 @@ describe('PresenceService', () => {
         'EX',
         30,
       );
+    });
+  });
+
+  describe('getOnlineUsers', () => {
+    it('retorna todos os usuários quando role não fornecido', async () => {
+      mockRedis.keys.mockResolvedValue(['presence:a', 'presence:b']);
+      mockRedis.mget.mockResolvedValue([
+        JSON.stringify({ userId: 'a', name: 'Aluno', role: 'aluno' }),
+        JSON.stringify({ userId: 'b', name: 'Prof', role: 'professor' }),
+      ]);
+
+      const result = await service.getOnlineUsers();
+      expect(result).toHaveLength(2);
     });
   });
 

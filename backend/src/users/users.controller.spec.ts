@@ -4,7 +4,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-const mockUsersService = { search: vi.fn() };
+const mockUsersService = { search: vi.fn(), findByRole: vi.fn() };
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -41,5 +41,13 @@ describe('UsersController', () => {
     const result = await controller.search(undefined as unknown as string);
     expect(mockUsersService.search).not.toHaveBeenCalled();
     expect(result).toEqual([]);
+  });
+
+  it('findProfessors delega para service com role PROFESSOR', async () => {
+    const professors = [{ id: 'uuid-1', name: 'Prof', email: 'prof@test.com', role: 'professor' }];
+    mockUsersService.findByRole.mockResolvedValue(professors);
+
+    const result = await controller.findProfessors();
+    expect(result).toEqual(professors);
   });
 });
