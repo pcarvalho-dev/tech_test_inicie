@@ -1,0 +1,17 @@
+{
+  "name": "load-test",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "ts-node index.ts --professors=100 --students=500",
+    "start:min": "ts-node index.ts --professors=10 --students=50"
+  },
+  "dependencies": {
+    "mqtt": "^5.15.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

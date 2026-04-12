@@ -69,3 +69,19 @@ Registro das decisões arquiteturais e de infraestrutura tomadas durante o desen
 | `screenshot/request/{alunoId}` | 1 | Comando crítico; reenvio automático garante que o aluno receba |
 | `screenshot/response/{alunoId}` | 1 | Imagem deve chegar ao backend; perda exigiria nova solicitação manual |
 | `screenshot/ready/{professorId}` | 1 | Notificação ao professor de que a imagem está disponível |
+
+---
+
+## Cache de sessão JWT no Redis
+
+**Decisão:** ao fazer login/register, os dados do usuário são cacheados no Redis com chave `session:{userId}` e TTL igual ao tempo de expiração do JWT (8h). O `JwtStrategy` consulta o Redis antes de bater no banco.
+
+**Motivo:** em cenários de alta concorrência (como o load test com 600 conexões), cada request autenticado batia no PostgreSQL para buscar o usuário. Com o cache, a validação do JWT vira uma leitura Redis — O(1) e sem pressão no banco.
+
+---
+
+## Idempotência no processamento de screenshots
+
+**Decisão:** antes de processar um upload de screenshot, o backend tenta adquirir um lock Redis com chave `screenshot_processing:{requestId}` usando `SET NX EX 30`. Se o lock já existe, o processamento é descartado.
+
+**Motivo:** o aluno pode enviar a resposta simultaneamente via MQTT e HTTP (fallback). Sem o lock, dois processamentos paralelos do mesmo `requestId` gerariam duplicatas no banco e duas notificações ao professor.
