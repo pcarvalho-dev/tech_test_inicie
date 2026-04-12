@@ -38,8 +38,8 @@ services:
     environment:
       EMQX_NAME: emqx
       EMQX_HOST: 0.0.0.0
-      EMQX_MQTT__ALLOW_ANONYMOUS: "true"
     volumes:
+      - ./emqx/emqx.conf:/opt/emqx/etc/emqx-override.conf
       - emqx_data:/opt/emqx/data
       - emqx_log:/opt/emqx/log
     healthcheck:
@@ -62,6 +62,7 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
       MQTT_HOST: emqx
       MQTT_PORT: 1883
+      MQTT_PASSWORD: ${MQTT_PASSWORD}
       PORT: ${PORT}
       NODE_ENV: ${NODE_ENV}
       SCREENSHOT_STORAGE_DIR: /app/screenshots

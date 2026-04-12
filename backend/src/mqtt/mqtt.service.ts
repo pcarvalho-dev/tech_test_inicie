@@ -16,6 +16,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
 
     this.client = mqtt.connect(`mqtt://${host}:${port}`, {
       clientId: `backend_${Math.random().toString(16).slice(2)}`,
+      username: 'backend',
+      password: this.config.getOrThrow<string>('MQTT_PASSWORD'),
       clean: true,
       reconnectPeriod: 1000,
     });
