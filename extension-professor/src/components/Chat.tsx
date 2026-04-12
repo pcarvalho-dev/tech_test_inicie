@@ -89,7 +89,6 @@ export default function ChatPage({ student, onBack, onLogout }: Props) {
             }
           }
         } catch {
-          // ignore
         }
       });
     });
@@ -112,8 +111,8 @@ export default function ChatPage({ student, onBack, onLogout }: Props) {
         return [...prev, msg].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       });
       setInput('');
-    } catch { /* ignore */ }
-    finally { setSending(false); }
+    } catch {
+    } finally { setSending(false); }
   }
 
   async function handleRequestScreenshot() {

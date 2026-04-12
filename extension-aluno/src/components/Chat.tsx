@@ -86,7 +86,6 @@ export default function ChatPage({ onLogout }: Props) {
             setLastUpdated(new Date());
           }
         } catch {
-          // ignore
         }
       });
     });
@@ -103,7 +102,8 @@ export default function ChatPage({ onLogout }: Props) {
     try {
       const { data } = await getChatHistory(id);
       setMessages(data.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
-    } catch { /* ignore */ }
+    } catch {
+    }
   }
 
   function selectReceiver(user: UserResult) {
@@ -131,7 +131,8 @@ export default function ChatPage({ onLogout }: Props) {
         return [...prev, msg].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       });
       setInput('');
-    } catch { /* ignore */ }
+    } catch {
+    }
     finally { setSending(false); }
   }
 

@@ -22,7 +22,6 @@ async function sendPresencePing() {
       headers: { Authorization: `Bearer ${auth.token}` },
     });
   } catch {
-    // ignore
   }
 }
 

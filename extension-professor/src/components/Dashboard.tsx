@@ -62,7 +62,6 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
           });
           setLastUpdated(new Date());
         } catch {
-          // ignore
         }
       });
     });
