@@ -8,6 +8,7 @@ import { getStorage } from './storage';
 import {
   apiFetch,
   login,
+  register,
   getOnlineStudents,
   sendMessage,
   getChatHistory,
@@ -73,6 +74,31 @@ describe('api (extension-professor)', () => {
     it('usa mensagem padrão se API não retorna message', async () => {
       mockFetch.mockResolvedValue(fail({}));
       await expect(login('x@x.com', 'w')).rejects.toThrow('Credenciais inválidas');
+    });
+  });
+
+  describe('register', () => {
+    it('retorna user e token em sucesso', async () => {
+      const data = { access_token: 'tok', user: { id: '1', email: 'p@p.com', name: 'Prof', role: 'professor' } };
+      mockFetch.mockResolvedValue(ok(data));
+      expect(await register('Prof', 'p@p.com', '123456')).toEqual(data);
+    });
+
+    it('envia role professor no body', async () => {
+      mockFetch.mockResolvedValue(ok({ access_token: 'tok', user: {} }));
+      await register('Prof', 'p@p.com', '123456');
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.role).toBe('professor');
+    });
+
+    it('lança erro com mensagem da API', async () => {
+      mockFetch.mockResolvedValue(fail({ message: 'Email já cadastrado' }));
+      await expect(register('Prof', 'x@x.com', '123')).rejects.toThrow('Email já cadastrado');
+    });
+
+    it('usa mensagem padrão se API não retorna message', async () => {
+      mockFetch.mockResolvedValue(fail({}));
+      await expect(register('Prof', 'x@x.com', '123')).rejects.toThrow('Erro ao criar conta');
     });
   });
 

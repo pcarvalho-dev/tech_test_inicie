@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getStorage, clearStorage } from '@/lib/storage';
 import { createMqttClient } from '@/lib/mqtt-client';
-import { getOnlineStudents, type OnlineStudent } from '@/lib/api';
+import { getAllStudents, getOnlineStudents, type OnlineStudent, type Student } from '@/lib/api';
 import type { MqttClient } from 'mqtt';
 
 interface Props {
@@ -9,17 +9,24 @@ interface Props {
   onLogout: () => void;
 }
 
+interface StudentWithStatus extends Student {
+  online: boolean;
+}
+
 export default function DashboardPage({ onStartChat, onLogout }: Props) {
   const [userName, setUserName] = useState('');
-  const [students, setStudents] = useState<OnlineStudent[]>([]);
+  const [students, setStudents] = useState<StudentWithStatus[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const mqttRef = useRef<MqttClient | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
-    const online = await getOnlineStudents();
-    setStudents(online);
+    const [all, online] = await Promise.all([getAllStudents(), getOnlineStudents()]);
+    const onlineIds = new Set(online.map((s) => s.userId));
+    const merged: StudentWithStatus[] = all.map((s) => ({ ...s, online: onlineIds.has(s.id) }));
+    merged.sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
+    setStudents(merged);
     setLastUpdated(new Date());
     setLoading(false);
   }, []);
@@ -53,13 +60,10 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
         try {
           const data = JSON.parse(payload.toString());
           if (data.role !== 'aluno') return;
-
           const userId = topic.split('/')[1];
-          setStudents((prev) => {
-            const exists = prev.find((s) => s.userId === userId);
-            if (exists) return prev;
-            return [...prev, { userId, name: data.name, role: 'aluno' }];
-          });
+          setStudents((prev) =>
+            prev.map((s) => (s.id === userId ? { ...s, online: true } : s)),
+          );
           setLastUpdated(new Date());
         } catch {
         }
@@ -84,6 +88,8 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
     return `há ${Math.floor(diffSec / 60)}min`;
   }
 
+  const onlineCount = students.filter((s) => s.online).length;
+
   return (
     <div className="flex flex-col w-[400px] h-[560px] bg-gray-50">
       <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white shrink-0">
@@ -98,10 +104,15 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
 
       <div className="flex items-center justify-between px-4 py-2 bg-white border-b shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Alunos online</span>
+          <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Alunos</span>
           <span className="text-xs bg-green-100 text-green-700 font-semibold px-1.5 py-0.5 rounded-full">
-            {students.length}
+            {onlineCount} online
           </span>
+          {students.length > 0 && (
+            <span className="text-xs bg-gray-100 text-gray-500 font-semibold px-1.5 py-0.5 rounded-full">
+              {students.length} total
+            </span>
+          )}
         </div>
         <button
           onClick={refresh}
@@ -124,12 +135,12 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
             <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <p className="text-xs text-gray-400">Nenhum aluno online no momento</p>
+            <p className="text-xs text-gray-400">Nenhum aluno cadastrado</p>
           </div>
         ) : (
           <ul className="divide-y divide-gray-100">
             {students.map((student) => (
-              <li key={student.userId} className="flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors">
+              <li key={student.id} className="flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
                   <span className="text-xs font-semibold text-indigo-600">
                     {student.name.charAt(0).toUpperCase()}
@@ -137,13 +148,13 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${student.online ? 'bg-green-500' : 'bg-gray-300'}`} />
                     <p className="text-sm font-medium text-gray-800 truncate">{student.name}</p>
                   </div>
-                  <p className="text-xs text-gray-400">Online</p>
+                  <p className="text-xs text-gray-400">{student.online ? 'Online' : 'Offline'}</p>
                 </div>
                 <button
-                  onClick={() => onStartChat(student)}
+                  onClick={() => onStartChat({ userId: student.id, name: student.name, role: 'aluno' })}
                   className="shrink-0 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors"
                 >
                   Conversar

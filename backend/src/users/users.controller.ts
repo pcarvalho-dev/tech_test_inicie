@@ -19,6 +19,14 @@ export class UsersController {
     return this.usersService.findByRole(UserRole.PROFESSOR);
   }
 
+  @Get('alunos')
+  @ApiOperation({ summary: 'Listar todos os alunos cadastrados' })
+  @ApiResponse({ status: 200, description: 'Lista de alunos (sem password)' })
+  @ApiResponse({ status: 401, description: 'Token inválido ou ausente' })
+  findAlunos() {
+    return this.usersService.findByRole(UserRole.ALUNO);
+  }
+
   @Get('search')
   @ApiOperation({ summary: 'Buscar usuários por nome ou email' })
   @ApiQuery({ name: 'q', description: 'Termo de busca (nome ou email)' })

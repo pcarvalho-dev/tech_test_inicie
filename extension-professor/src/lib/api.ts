@@ -24,6 +24,16 @@ export async function login(email: string, password: string) {
   return res.json() as Promise<{ access_token: string; user: { id: string; email: string; name: string; role: string } }>;
 }
 
+export async function register(name: string, email: string, password: string) {
+  const res = await fetch(`${BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, role: 'professor' }),
+  });
+  if (!res.ok) throw new Error((await res.json()).message ?? 'Erro ao criar conta');
+  return res.json() as Promise<{ access_token: string; user: { id: string; email: string; name: string; role: string } }>;
+}
+
 export interface OnlineStudent {
   userId: string;
   name: string;
@@ -32,6 +42,19 @@ export interface OnlineStudent {
 
 export async function getOnlineStudents(): Promise<OnlineStudent[]> {
   const res = await apiFetch('/presence/online?role=aluno');
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export interface Student {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export async function getAllStudents(): Promise<Student[]> {
+  const res = await apiFetch('/users/alunos');
   if (!res.ok) return [];
   return res.json();
 }

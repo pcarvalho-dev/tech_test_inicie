@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { login } from '@/lib/api';
+import { login, register } from '@/lib/api';
 import { setStorage } from '@/lib/storage';
 
 interface Props {
@@ -7,17 +7,29 @@ interface Props {
 }
 
 export default function LoginPage({ onLogin }: Props) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  function switchMode(next: 'login' | 'register') {
+    setMode(next);
+    setError('');
+    setName('');
+    setEmail('');
+    setPassword('');
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const data = await login(email, password);
+      const data = mode === 'login'
+        ? await login(email, password)
+        : await register(name, email, password);
 
       if (data.user.role !== 'professor') {
         throw new Error('Acesso restrito a professores');
@@ -49,6 +61,21 @@ export default function LoginPage({ onLogin }: Props) {
         <p className="text-center text-sm text-gray-500 mb-6">Extensão do Professor</p>
 
         <form onSubmit={handleSubmit} className="space-y-3">
+          {mode === 'register' && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Nome</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Seu nome completo"
+                autoFocus
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
             <input
@@ -58,7 +85,7 @@ export default function LoginPage({ onLogin }: Props) {
               required
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               placeholder="professor@escola.com"
-              autoFocus
+              autoFocus={mode === 'login'}
             />
           </div>
 
@@ -86,9 +113,33 @@ export default function LoginPage({ onLogin }: Props) {
             disabled={loading}
             className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors"
           >
-            {loading ? 'Aguarde...' : 'Entrar'}
+            {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
           </button>
         </form>
+
+        <p className="text-center text-sm text-gray-500 mt-4">
+          {mode === 'login' ? (
+            <>
+              Não tem conta?{' '}
+              <button
+                onClick={() => switchMode('register')}
+                className="text-indigo-600 hover:underline font-medium"
+              >
+                Criar conta
+              </button>
+            </>
+          ) : (
+            <>
+              Já tem conta?{' '}
+              <button
+                onClick={() => switchMode('login')}
+                className="text-indigo-600 hover:underline font-medium"
+              >
+                Entrar
+              </button>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );
