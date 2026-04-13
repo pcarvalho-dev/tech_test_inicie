@@ -32,12 +32,14 @@ async function connectSseStream() {
               professorId: payload.professorId,
               alunoId: auth.user.id
             });
-          } catch {
+          } catch (err) {
+            console.error("screenshot_request error:", err);
           }
         }
       }
     }
-  } catch {
+  } catch (err) {
+    console.warn("sse stream ended:", err);
   }
   chrome.alarms.create("sse-reconnect", { delayInMinutes: 0.05 });
 }
@@ -60,7 +62,8 @@ async function checkPendingScreenshot(auth) {
         alunoId: auth.user.id
       });
     }
-  } catch {
+  } catch (err) {
+    console.error("checkPendingScreenshot failed:", err);
   }
 }
 async function sendPresencePing() {
@@ -74,7 +77,8 @@ async function sendPresencePing() {
       method: "POST",
       headers: { Authorization: `Bearer ${auth.token}` }
     });
-  } catch {
+  } catch (err) {
+    console.error("presence ping failed:", err);
   }
   await checkPendingScreenshot(auth);
 }
@@ -94,13 +98,15 @@ async function captureAndUpload(data) {
         windowId = win.id;
       }
     }
-  } catch {
+  } catch (err) {
+    console.warn("getLastFocused failed:", err);
   }
   if (windowId === void 0) {
     try {
       const [httpTab] = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
       if (httpTab?.windowId !== void 0) windowId = httpTab.windowId;
-    } catch {
+    } catch (err) {
+      console.warn("tabs.query fallback failed:", err);
     }
   }
   let dataUrl;
