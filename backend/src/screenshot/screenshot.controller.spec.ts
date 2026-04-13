@@ -28,6 +28,7 @@ describe('ScreenshotController', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
+      .setLogger(false)
       .compile();
 
     controller = module.get(ScreenshotController);

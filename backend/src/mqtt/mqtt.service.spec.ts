@@ -44,7 +44,7 @@ describe('MqttService', () => {
         MqttService,
         { provide: ConfigService, useValue: mockConfig },
       ],
-    }).compile();
+    }).setLogger(false).compile();
 
     service = module.get(MqttService);
     service.onModuleInit();

@@ -41,7 +41,7 @@ describe('UsersService', () => {
         UsersService,
         { provide: getRepositoryToken(User), useValue: mockRepo },
       ],
-    }).compile();
+    }).setLogger(false).compile();
 
     service = module.get(UsersService);
   });

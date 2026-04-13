@@ -18,6 +18,7 @@ export default defineConfig({
         'src/seed.ts',
         'src/seed.cli.ts',
         'src/migrations/**',
+        'src/**/*.dto.ts',
       ],
       thresholds: {
         lines: 90,

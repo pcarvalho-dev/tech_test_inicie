@@ -22,6 +22,7 @@ describe('ChatController', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
+      .setLogger(false)
       .compile();
 
     controller = module.get(ChatController);

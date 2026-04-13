@@ -25,7 +25,7 @@ describe('MqttAuthController', () => {
         { provide: ConfigService, useValue: mockConfig },
         { provide: JwtService, useValue: mockJwtService },
       ],
-    }).compile();
+    }).setLogger(false).compile();
 
     controller = module.get(MqttAuthController);
   });

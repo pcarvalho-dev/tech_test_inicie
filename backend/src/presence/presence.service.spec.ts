@@ -34,7 +34,7 @@ describe('PresenceService', () => {
         { provide: MqttService, useValue: mockMqttService },
         { provide: ConfigService, useValue: mockConfig },
       ],
-    }).compile();
+    }).setLogger(false).compile();
 
     service = module.get(PresenceService);
     service.onModuleInit();

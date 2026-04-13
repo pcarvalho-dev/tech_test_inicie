@@ -57,7 +57,7 @@ describe('ScreenshotService', () => {
         { provide: MqttService, useValue: mockMqttService },
         { provide: ConfigService, useValue: mockConfig },
       ],
-    }).compile();
+    }).setLogger(false).compile();
 
     service = module.get(ScreenshotService);
     service.onModuleInit();

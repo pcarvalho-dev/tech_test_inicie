@@ -24,7 +24,7 @@ describe('JwtStrategy', () => {
         { provide: ConfigService, useValue: mockConfigService },
         { provide: AuthService, useValue: mockAuthService },
       ],
-    }).compile();
+    }).setLogger(false).compile();
 
     strategy = module.get(JwtStrategy);
   });

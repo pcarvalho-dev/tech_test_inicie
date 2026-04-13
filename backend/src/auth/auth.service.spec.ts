@@ -55,7 +55,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfig },
       ],
-    }).compile();
+    }).setLogger(false).compile();
 
     service = module.get(AuthService);
     service.onModuleInit();
@@ -166,7 +166,7 @@ describe('AuthService', () => {
           { provide: JwtService, useValue: mockJwtService },
           { provide: ConfigService, useValue: configInvalid },
         ],
-      }).compile();
+      }).setLogger(false).compile();
 
       const svc = module2.get(AuthService);
       expect(() => svc.onModuleInit()).not.toThrow();

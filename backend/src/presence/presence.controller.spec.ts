@@ -17,6 +17,7 @@ describe('PresenceController', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
+      .setLogger(false)
       .compile();
 
     controller = module.get(PresenceController);
