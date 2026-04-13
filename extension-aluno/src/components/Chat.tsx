@@ -29,8 +29,11 @@ export default function ChatPage({ onLogout }: Props) {
   const presencePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshPresence = useCallback(async () => {
-    const online = await getOnlineUsers();
-    setOnlineIds(new Set(online.map((u) => u.userId)));
+    try {
+      const online = await getOnlineUsers();
+      setOnlineIds(new Set(online.map((u) => u.userId)));
+    } catch {
+    }
     setLastUpdated(new Date());
   }, []);
 
@@ -59,6 +62,7 @@ export default function ChatPage({ onLogout }: Props) {
         client.subscribe(`screenshot/request/${user.id}`, { qos: 1 });
         client.subscribe('chat/+', { qos: 1 });
         client.subscribe('presence/+', { qos: 0 });
+        refreshPresence();
       });
 
       client.on('message', (topic, payload) => {

@@ -22,11 +22,14 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
-    const [all, online] = await Promise.all([getAllStudents(), getOnlineStudents()]);
-    const onlineIds = new Set(online.map((s) => s.userId));
-    const merged: StudentWithStatus[] = all.map((s) => ({ ...s, online: onlineIds.has(s.id) }));
-    merged.sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
-    setStudents(merged);
+    try {
+      const [all, online] = await Promise.all([getAllStudents(), getOnlineStudents()]);
+      const onlineIds = new Set(online.map((s) => s.userId));
+      const merged: StudentWithStatus[] = all.map((s) => ({ ...s, online: onlineIds.has(s.id) }));
+      merged.sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
+      setStudents(merged);
+    } catch {
+    }
     setLastUpdated(new Date());
     setLoading(false);
   }, []);
@@ -53,6 +56,7 @@ export default function DashboardPage({ onStartChat, onLogout }: Props) {
 
       client.on('connect', () => {
         client.subscribe('presence/+', { qos: 0 });
+        refresh();
       });
 
       client.on('message', (topic, payload) => {

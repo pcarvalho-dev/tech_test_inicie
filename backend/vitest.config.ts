@@ -15,6 +15,8 @@ export default defineConfig({
         'src/**/*.module.ts',
         'src/**/*.entity.ts',
         'src/main.ts',
+        'src/seed.ts',
+        'src/seed.cli.ts',
         'src/migrations/**',
       ],
       thresholds: {

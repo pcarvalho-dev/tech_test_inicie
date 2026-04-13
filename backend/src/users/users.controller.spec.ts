@@ -50,4 +50,12 @@ describe('UsersController', () => {
     const result = await controller.findProfessors();
     expect(result).toEqual(professors);
   });
+
+  it('findAlunos delega para service com role ALUNO', async () => {
+    const alunos = [{ id: 'uuid-2', name: 'Aluno', email: 'aluno@test.com', role: 'aluno' }];
+    mockUsersService.findByRole.mockResolvedValue(alunos);
+
+    const result = await controller.findAlunos();
+    expect(result).toEqual(alunos);
+  });
 });
