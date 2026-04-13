@@ -13,6 +13,7 @@ Sistema de comunicação em tempo real entre **Professor** e **Aluno**, composto
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Estrutura de tópicos MQTT](#estrutura-de-tópicos-mqtt)
 - [Decisões arquiteturais](#decisões-arquiteturais)
+- [Fluxos técnicos](#fluxos-técnicos)
 - [Testes](#testes)
 - [Teste de carga](#teste-de-carga)
 - [API Docs](#api-docs)
@@ -223,6 +224,28 @@ O histórico usa `cursor=<ISO-timestamp>` em vez de offset. Com offset, novas me
 ### Multi-stage Dockerfile
 
 O backend usa build multi-stage: `builder` (compila TypeScript) e `production` (apenas `dist/` + `node_modules` de produção). A imagem final tem ~300MB a menos que uma imagem com devDependencies.
+
+---
+
+## Fluxos técnicos
+
+O arquivo [`FLUXOS.md`](./FLUXOS.md) documenta o funcionamento interno de cada feature com diagramas de fluxo — do clique do usuário até o banco de dados.
+
+**Fluxos cobertos:** Login · Presença online · Chat · Autenticação MQTT · Screenshot · Validação de token
+
+### Como visualizar
+
+**Opção 1 — VS Code**
+
+Instale a extensão [Markdown Preview Mermaid Support](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid), abra `FLUXOS.md` e pressione `Ctrl+Shift+V`.
+
+**Opção 2 — Online**
+
+Acesse [mermaid.live](https://mermaid.live), cole o conteúdo de cada bloco ` ```mermaid ``` ` e visualize interativamente.
+
+**Opção 3 — GitHub**
+
+O GitHub renderiza Mermaid nativamente em arquivos `.md` — basta abrir `FLUXOS.md` no repositório.
 
 ---
 
